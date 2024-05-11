@@ -26,7 +26,26 @@ int main(){
     // r.Size();
     // std::cout << r.IsInRoom(65950);
     // r.Debug();
+ 
+ 
+    RoomCacheLRU r("./10001.bin");
 
-    RoomCacheLRU r = RoomCacheLRU("./10001.bin");
-    // getchar();
+    // 记录开始时间
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < 100000; i++) {
+        r.AddMember((1 << 5) + i);
+    }
+
+    // 记录结束时间
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    std::cout << r.GetMember(999) << std::endl;
+
+    // 计算耗时
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    std::cout << "添加数据耗时: " << duration << " 毫秒" << std::endl;
+
+    getchar();
+    return 0;
 }

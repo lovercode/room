@@ -55,7 +55,8 @@ public:
     ~RoomCacheLRU();
 
     void AddMember(int64_t uid);
+    int64_t GetMember(int64_t uid);
     // bool IsInRoom(int64_t uid);
-    // void Debug();
+    void Debug();
     // void Size();
 };
