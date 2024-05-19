@@ -8,7 +8,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#define max_size 10000000
+int max_size = 10000000;
 
 class RoomCache
 {

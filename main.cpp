@@ -35,8 +35,14 @@ void addTest(RoomCacheLRU& r){
     std::cout << "添加数据耗时: " << duration << " 毫秒" << std::endl;
 }
 
+void showMenu(){
+    std::cout<< "0.添加测试数据"<<std::endl;
+    std::cout<< "1.显示所有数据"<<std::endl;
+    std::cout<< "2.显示数据数量"<<std::endl;
+    std::cout<< "3.初始化"<<std::endl;
+}
+
 int main(){
-    getchar();
  
     RoomCacheLRU* r;
 
@@ -44,6 +50,7 @@ int main(){
     {
         /* code */
         int menu = 0;
+        showMenu();
         std::cin >> menu;
 
         switch (menu)
@@ -53,8 +60,10 @@ int main(){
             break;
         case 1:
             r->ShowAllData();
+            break;
         case 2:
             r->Debug();
+            break;
         default:
             r = new RoomCacheLRU("./10001.bin");
             break;
