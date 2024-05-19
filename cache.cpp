@@ -75,6 +75,7 @@ void RoomCache::Size()
 
 RoomCacheLRU::RoomCacheLRU(const std::string &filename)
 {
+    auto start_time = std::chrono::high_resolution_clock::now();
     fd = open(filename.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     if (fd == -1)
     {
@@ -93,9 +94,8 @@ RoomCacheLRU::RoomCacheLRU(const std::string &filename)
     tail = arr + 1;
     member_size = arr + 2;
     data = arr + 3;
-    std::cout << "head: " << *head << "tail: " << *tail << " member_size: " << *member_size << std::endl;
     for (int i=*head; i<*tail; i++){
-        int index = i*sizeof(int64_t)*2;
+        int index = i*2;
         if(data[index] > 0){
             data_index[data[index]] = i;
         }
@@ -104,6 +104,9 @@ RoomCacheLRU::RoomCacheLRU(const std::string &filename)
     {
         throw std::runtime_error("Error mapping file");
     }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    std::cout << "加载" << *member_size << "条数据耗时: " << duration << " 毫秒" << std::endl;
 }
 
 RoomCacheLRU::~RoomCacheLRU()
@@ -118,19 +121,55 @@ void RoomCacheLRU::AddMember(int64_t uid)
         不存在，添加
     */
     auto index = data_index.find(uid);
+    int64_t dataIndex = 0;
     if(index != data_index.end()){
+        dataIndex = index->second*2;
         // 存在 更新时间
-        // data[index] = uid;
-        data[index->second*sizeof(int64_t)*2+1] = time(NULL);
-        lock.unlock();
-        return;
+        data[dataIndex+1] = time(NULL);
+    }else{
+        /*
+        1. 找空闲的
+            (tail+1) != head 说明还有空闲的，直接放在tail
+            (tail+1) == head 说明用完了
+                检查head是否是空的，是的话尽量往后走一走
+                不为空，说明head和tail都不为空，但是中间有空闲的，需要碎片整理（整理是渐进式的，每次整理一批出来）
+        0 0 1 1 1 1 1 0 1
+              t h
+        开始整理
+        0 1 1 1 0 1 1 0 1
+              t h
+        1 1 1 1 0 0 1 0 1
+              t h
+        1 1 1 1 0 0 0 1 1
+              t h
+        1 1 1 1 0 0 0 1 1
+              t       h
+        */
+        // 先找到一个可用的
+        dataIndex = (*tail)*2;
+        data_index[uid] = (*tail);
+        data[dataIndex] = uid;
+        data[dataIndex+1] = time(NULL);
+        *tail = (*tail)+1;
+        *member_size = (*member_size)+1;
     }
-    int i = (*tail)*sizeof(int64_t)*2;
-    data_index[uid] = *tail;
-    data[i] = uid;
-    data[i+1] = time(NULL);
-    *tail = (*tail)+1;
-    *member_size = (*member_size)+1;
+
+    msync((void*)&data[dataIndex], sizeof(int64_t)*2, MS_SYNC);
+    lock.unlock();
+}
+
+void RoomCacheLRU::DelMember(int64_t uid)
+{
+    lock.lock();
+    auto index = data_index.find(uid);
+    if(index != data_index.end()){
+        int64_t dataIndex = index->second*2;
+        data[dataIndex] = 0;
+        data[dataIndex+1] = 0;
+        data_index.erase(uid);
+        *member_size = (*member_size)-1;
+        msync((void*)&data[dataIndex], sizeof(int64_t)*2, MS_SYNC);
+    }
     lock.unlock();
 }
 
@@ -140,7 +179,7 @@ int64_t RoomCacheLRU::GetMember(int64_t uid)
     auto index = data_index.find(uid);
     int64_t ts = 0;
     if(index != data_index.end()){
-        ts = data[index->second*sizeof(int64_t)*2+1];
+        ts = data[index->second*2+1];
     }
     lock.unlock();
     return ts;
@@ -148,10 +187,41 @@ int64_t RoomCacheLRU::GetMember(int64_t uid)
 
 void RoomCacheLRU::Debug()
 {
-    std::cout << std::endl;
+    std::cout << "head: " << *head << " tail: " << *tail << " member_size: " << *member_size << " index_size:" << data_index.size() << std::endl;
+}
+
+void RoomCacheLRU::RangeTest()
+{
+    int64_t sum = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
     for(int i=0; i<*tail; i++){
-        int index = i*sizeof(ino64_t)*2;
-        std::cout << "uid: " << data[index] << " ts: " <<  data[index+1] << std::endl;
+        int64_t uid = data[i*2];
+        if((i&1) == 0){
+            sum += uid;
+        }else{
+            sum -= uid;
+        }
+    }
+    // for(auto it=data_index.begin(); it!=data_index.end(); it++){
+    //     int64_t uid = it->first;
+    //     if((it->second&1) == 0){
+    //         sum += uid;
+    //     }else{
+    //         sum -= uid;
+    //     }
+    // }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    std::cout << "遍历计算" << *member_size << "条数据 "<< sum <<"耗时: " << duration << " 毫秒" << std::endl;
+}
+
+void RoomCacheLRU::ShowAllData()
+{
+    std::cout << "index\t" << "dindex\t" << "uid\t" << "ts\t" << std::endl;
+    for(int i=0; i<*tail; i++){
+        int64_t uid = data[i*2];
+        int64_t ts = data[i*2+1];
+        std::cout << i << "\t" << data_index[uid] <<"\t" << uid << "\t" << ts << "\t" << std::endl;
     }
     std::cout << std::endl;
 }

@@ -8,7 +8,7 @@
 #include <mutex>
 #include <unordered_map>
 
-#define max_size 1000000
+#define max_size 10000000
 
 class RoomCache
 {
@@ -55,8 +55,9 @@ public:
     ~RoomCacheLRU();
 
     void AddMember(int64_t uid);
+    void DelMember(int64_t uid);
     int64_t GetMember(int64_t uid);
-    // bool IsInRoom(int64_t uid);
     void Debug();
-    // void Size();
+    void RangeTest();
+    void ShowAllData();
 };
