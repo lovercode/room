@@ -38,7 +38,7 @@ void addTest(RoomCacheLRU& r){
 int main(){
     getchar();
  
-    RoomCacheLRU r("./10001.bin");
+    RoomCacheLRU* r;
 
     while (true)
     {
@@ -49,13 +49,14 @@ int main(){
         switch (menu)
         {
         case 0:
-            addTest(r);
+            addTest(*r);
             break;
         case 1:
-            r.ShowAllData();
+            r->ShowAllData();
         case 2:
-            r.Debug();
+            r->Debug();
         default:
+            r = &RoomCacheLRU("./10001.bin");
             break;
         }
         getchar();
