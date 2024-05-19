@@ -56,7 +56,7 @@ int main(){
         case 2:
             r->Debug();
         default:
-            r = &RoomCacheLRU("./10001.bin");
+            r = new RoomCacheLRU("./10001.bin");
             break;
         }
         getchar();
