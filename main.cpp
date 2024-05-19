@@ -39,7 +39,8 @@ void showMenu(){
     std::cout<< "0.添加测试数据"<<std::endl;
     std::cout<< "1.显示所有数据"<<std::endl;
     std::cout<< "2.显示数据数量"<<std::endl;
-    std::cout<< "3.初始化"<<std::endl;
+    std::cout<< "3.测试遍历"<<std::endl;
+    std::cout<< "other.初始化"<<std::endl;
 }
 
 int main(){
@@ -63,6 +64,9 @@ int main(){
             break;
         case 2:
             r->Debug();
+            break;
+        case 3:
+            r->RangeTest();
             break;
         default:
             r = new RoomCacheLRU("./10001.bin");
